@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Humidity Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>  * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+            animation: backgroundShift 10s infinite alternate;
+            overflow: hidden; /* Hide overflow for raindrops */
+        }
+
+        @keyframes backgroundShift {
+            0% { background: linear-gradient(135deg, #74ebd5, #ACB6E5); }
+            50% { background: linear-gradient(135deg, #FFDEE9, #B5FFFC); }
+            100% { background: linear-gradient(135deg, #74ebd5, #ACB6E5); }
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            width: 400px;
+            animation: fadeIn 1s ease-in-out;
+            transition: transform 0.3s;
+            border: 2px solid #007bff;
+            position: relative; /* Set relative positioning for absolute children */
+            z-index: 1; /* Keep it below raindrops */
+        }
+
+        .container:hover {
+            transform: translateY(-10px);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #007bff;
+            margin-bottom: 15px;
+            background: linear-gradient(to right, #007bff, #00c6ff);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .data-item {
+            background-color: #f9f9f9;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+
+        .data-item:hover {
+            background-color: #e9f5ff;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .data-item span {
+            display: block;
+            font-size: 2.2em;
+            color: #444;
+        }
+
+        .data-item .label {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+
+        #temperature-chart {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        footer {
+            margin-top: 25px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        footer a:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        /* Raining animation styles */
+        .raindrop {
+            position: absolute;
+            bottom: 100%;
+            width: 2px;
+            height: 10px;
+            background: rgba(0, 123, 255, 0.5);
+            animation: fall linear;
+            opacity: 0.5;
+            z-index: 2; /* Bring raindrops above other elements */
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+            }
+        }
+
+        /* Add some media queries for responsiveness */
+        @media (max-width: 480px) {
+            .container {
+                width: 90%;
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .data-item span {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Report And Air Quality</h1>
+        <div class="data-item">
+            <span class="label">Humidity</span>
+            <span id="humidity">Loading...</span>
+        </div>
+        <canvas id="humidity-chart"></canvas>
+    </div>
+
+    <script>
+    const token = 'OuKZ71NTJXQdMlCM_vuhz2KoL8SYIAJX';
+    const humidityUrl = `https://blynk.cloud/external/api/get?token=${token}&v2`; // Assuming V2 is for humidity
+    const rainUrl = `https://blynk.cloud/external/api/get?token=${token}&v4`; // V4 is for rain data
+
+    const humidityData = [];
+    const labels = [];
+    let rainInterval;
+
+    function fetchData(url, elementId, label) {
+        fetch(url)
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById(elementId).innerText = `${data} %`;
+                updateChart(data);
+            })
+            .catch(error => {
+                console.error(`Error fetching ${label}:`, error);
+                document.getElementById(elementId).innerText = `Error loading ${label}`;
+            });
+    }
+
+    function fetchRainStatus() {
+        fetch(rainUrl)
+            .then(response => response.text())
+            .then(data => {
+                if (data === '1') {
+                    startRainEffect();
+                } else {
+                    stopRainEffect();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching rain status:', error);
+            });
+    }
+
+    function updateChart(data) {
+        if (humidityData.length >= 10) {
+            humidityData.shift();
+            labels.shift();
+        }
+        const currentTime = new Date().toLocaleTimeString();
+        humidityData.push(data);
+        labels.push(currentTime);
+        myChart.update();
+    }
+
+    function updateDashboard() {
+        fetchData(humidityUrl, 'humidity', 'Humidity');
+        fetchRainStatus(); // Check rain status
+    }
+
+    // Fetch data initially on page load
+    updateDashboard();
+
+    // Auto-refresh every 1 second
+    setInterval(updateDashboard, 1000);
+
+    // Chart.js setup
+    const ctx = document.getElementById('humidity-chart').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Humidity (%)',
+                data: humidityData,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time',
+                        color: '#333',
+                        font: { size: 14, weight: 'bold' }
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Humidity (%)',
+                        color: '#333',
+                        font: { size: 14, weight: 'bold' }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true
+                }
+            }
+        }
+    });
+
+function animateCount(start, end, elementId) {
+        const duration = 1000; // 1 second for the animation
+        const startTime = performance.now();
+
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const currentValue = start + (end - start) * progress;
+            document.getElementById(elementId).innerText = `${currentValue.toFixed(2)}%`;
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    function fetchData(url, elementId, label) {
+        fetch(url)
+            .then(response => response.text())
+            .then(data => {
+                const newValue = parseFloat(data);
+                const currentValue = parseFloat(document.getElementById(elementId).innerText) || 0;
+                animateCount(currentValue, newValue, elementId);
+                updateChart(newValue);
+            })
+            .catch(error => {
+                console.error(`Error fetching ${label}:`, error);
+                document.getElementById(elementId).innerText = `Error loading ${label}`;
+            });
+    }
+
+
+
+
+
+
+
+    // Raining effect control
+    function createRaindrop() {
+        const raindrop = document.createElement('div');
+        raindrop.className = 'raindrop';
+        raindrop.style.left = Math.random() * 100 + 'vw'; // Random horizontal position
+        raindrop.style.animationDuration = (Math.random() * 1 + 0.5) + 's'; // Random fall duration
+        document.body.appendChild(raindrop);
+
+        // Remove the raindrop after the animation
+        raindrop.addEventListener('animationend', () => {
+            raindrop.remove();
+        });
+    }
+
+    function startRainEffect() {
+        if (!rainInterval) {
+            rainInterval = setInterval(createRaindrop, 1); // Start the rain effect
+        }
+    }
+
+    function stopRainEffect() {
+        if (rainInterval) {
+            clearInterval(rainInterval); // Stop the rain effect
+            rainInterval = null;
+        }
+    }
+</script>
+
+</body>
+</html>

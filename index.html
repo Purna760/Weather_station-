@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Station Home</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+            animation: backgroundShift 10s infinite alternate;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+
+        @keyframes backgroundShift {
+            0% { background: linear-gradient(135deg, #74ebd5, #ACB6E5); }
+            50% { background: linear-gradient(135deg, #FFDEE9, #B5FFFC); }
+            100% { background: linear-gradient(135deg, #74ebd5, #ACB6E5); }
+        }
+
+        .container {
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            width: 500px;
+            animation: fadeIn 1s ease-in-out;
+            border: 2px solid #007bff;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #007bff;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #007bff, #00c6ff);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .links a {
+            display: block;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.2em;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        .links a:hover {
+            background-color: #0056b3;
+            transform: translateY(-5px);
+        }
+
+        /* Tutorial animation */
+        @keyframes highlight {
+            0% { background-color: #007bff; }
+            50% { background-color: #00c6ff; }
+            100% { background-color: #007bff; }
+        }
+
+        .highlight {
+            animation: highlight 1s infinite alternate;
+        }
+
+        footer {
+            margin-top: 30px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        footer a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        footer a:hover {
+            color: #0056b3;
+        }
+
+        /* Raining animation styles */
+        .raindrop {
+            position: absolute;
+            bottom: 100%;
+            width: 2px;
+            height: 10px;
+            background: rgba(0, 123, 255, 0.5);
+            animation: fall linear;
+            opacity: 0.5;
+            z-index: 2; /* Bring raindrops above other elements */
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                width: 90%;
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .links a {
+                font-size: 1em;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Report And Air Quality</h1>
+        <div class="links">
+            <a id="tempButton" href="temperature.html">Temperature</a>
+            <a id="humidityButton" href="humidity.html">Humidity</a>
+            <a id="aqiButton" href="aqi.html">Air Quality</a>
+            <a id="aqiButton" href="https://docs.google.com/spreadsheets/d/18OQTSF8xpNxPIJyJU0SCedo65XwLlKygK88ErCuhMRQ/edit?usp=sharing">Google Sheets Report</a>
+        </div>
+    </div>
+
+    <script>
+        const token = 'OuKZ71NTJXQdMlCM_vuhz2KoL8SYIAJX';
+        const rainUrl = `https://blynk.cloud/external/api/get?token=${token}&v4`; // V4 is for rain data
+        
+        let rainInterval;
+
+        // Function to add tutorial animation to buttons
+        function addHighlightAnimation() {
+            const buttons = document.querySelectorAll('.links a');
+            buttons.forEach((button, index) => {
+                setTimeout(() => {
+                    button.classList.add('highlight');
+                    setTimeout(() => {
+                        button.classList.remove('highlight');
+                    }, 2000); // Highlight for 2 seconds
+                }, index * 3000); // Delay for each button
+            });
+        }
+
+        // Function to update the dashboard by fetching rain status
+        function updateDashboard() {
+            fetchRainStatus(); // Check rain status
+        }
+
+        // Start the animation when the page loads
+        window.onload = () => {
+            addHighlightAnimation();
+            updateDashboard(); // Fetch rain status when page loads
+            
+            // Refresh the dashboard every 1 seconds
+            setInterval(updateDashboard, 1000);
+        };
+
+        function fetchRainStatus() {
+            fetch(rainUrl)
+                .then(response => response.text())
+                .then(data => {
+                    if (data === '1') {
+                        startRainEffect();
+                    } else {
+                        stopRainEffect();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching rain status:', error);
+                });
+        }
+    
+        // Raining effect control
+        function createRaindrop() {
+            const raindrop = document.createElement('div');
+            raindrop.className = 'raindrop';
+            raindrop.style.left = Math.random() * 100 + 'vw'; // Random horizontal position
+            raindrop.style.animationDuration = (Math.random() * 1 + 0.5) + 's'; // Random fall duration
+            document.body.appendChild(raindrop);
+
+            // Remove the raindrop after the animation
+            raindrop.addEventListener('animationend', () => {
+                raindrop.remove();
+            });
+        }
+
+        function startRainEffect() {
+            if (!rainInterval) {
+                rainInterval = setInterval(createRaindrop, 1); // Start the rain effect
+            }
+        }
+
+        function stopRainEffect() {
+            if (rainInterval) {
+                clearInterval(rainInterval); // Stop the rain effect
+                rainInterval = null;
+            }
+        }
+    </script>
+</body>
+</html>
